@@ -7,10 +7,6 @@
                     for spawn_node in road.spawn_nodes:
                         if (random.random() < spawn_node.spawn_chance):
                             spawned_car = car(spawn_node, np.random.normal(3, 0.25))
-                            # --- This is how you'd spawn a car ---
-                            # 1. Pick a random spawn node from the road
-                            # 2. Figure out a route (This is complex, placeholder for now)
-                            # route = Route(spawn_node, ...)
                             arrival_node = None
                             while (True):
                                 for spawn_node in network.road_segments.spawn_nodes:

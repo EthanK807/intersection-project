@@ -2,7 +2,29 @@ import osmnx as ox
 import pandas as pd
 from db_config import get_db_engine # Import our shared connection tool
 
+def fill_missing_speeds(row):
+# If we already have a speed keep it
+    if pd.notna(row['maxspeed']):
+        return row['maxspeed']
+    
+    # Otherwise, look at the highway type to guess the speed
+    highway_type = str(row['highway'])
+    
+    if 'motorway' in highway_type or 'trunk' in highway_type:
+        return '65 mph'
+    elif 'primary' in highway_type or 'secondary' in highway_type:
+        return '45 mph'
+    elif 'tertiary' in highway_type:
+        return '35 mph'
+    elif 'residential' in highway_type or 'living_street' in highway_type:
+        return '25 mph'
+    else:
+        # In case weird roads like unclassified or service roads
+        return '30 mph'
+
+
 def import_city_to_sql(city_name):
+
     # 1. Download the data
     print(f"Downloading {city_name}...")
     G = ox.graph_from_place(city_name, network_type="drive")
@@ -11,20 +33,17 @@ def import_city_to_sql(city_name):
     nodes, edges = ox.graph_to_gdfs(G)
     
     # 3. Clean Nodes
-    # We strip out the geometry object and just keep lat/lon
-    nodes['latitude'] = nodes.geometry.y
-    nodes['longitude'] = nodes.geometry.x
-    nodes['node_id'] = nodes.index
+    nodes['node_id'] = nodes.osmid
     
     # Select specific columns
-    nodes_clean = nodes[['node_id', 'latitude', 'longitude', 'street_count']]
+    nodes_clean = nodes[['node_id', 'x', 'y', 'street_count', 'highway']]
     
     # 4. Clean Edges
     # Convert the complex curve object (LineString) into text (WKT)
     edges['geometry_wkt'] = edges['geometry'].apply(lambda x: x.wkt if x else None)
+    edges['maxspeed'] = edges.apply(fill_missing_speeds, axis=1)
     
     # Handle missing values (NaN) with defaults
-    edges['maxspeed'] = edges['maxspeed'].fillna('25 mph').astype(str)
     edges['lanes'] = edges['lanes'].fillna('1').astype(str)
     edges['name'] = edges['name'].fillna('Unnamed').astype(str)
 
@@ -34,6 +53,9 @@ def import_city_to_sql(city_name):
     
     edges['name'] = edges['name'].apply(clean_val)
     edges['maxspeed'] = edges['maxspeed'].apply(clean_val)
+    edges['osmid'] = edges['osmid'].apply(clean_val)
+    edges['name'] = edges['name'].apply(clean_val)
+
     
     # Rename columns to match your SQL schema
     edges_clean = edges.reset_index()[['u', 'v', 'name', 'maxspeed', 'lanes', 'length', 'geometry_wkt']]
