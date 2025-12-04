@@ -21,11 +21,11 @@ class LightColor(Enum):
 
 def main():
     
+    
+
     def simulate(network, steps=300):
         for t in range(steps):
             print(f"\n--- Time step {t} ---")
-
-            view_raw_data()
 
             # Update traffic lights (simple toggle)
 
